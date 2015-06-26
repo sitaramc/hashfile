@@ -38,6 +38,8 @@ my ( $file, $db );
         'clear' => \&cli_clear,
         'grep'  => \&cli_grep,
         'dump'  => \&cli_dump,
+        'lock'  => \&cli_lock,
+        'unlock'  => \&cli_unlock,
     );
 
     die "unknown command '$cmd'" unless exists $dt{$cmd};
@@ -128,6 +130,39 @@ sub cli_dump {
     return ( 1, 0 );
 }
 
+sub cli_lock {
+    my ($k, $pid) = @_;
+
+    $db->lock_exclusive();
+
+    if (exists $db->{$k}) {
+        $db->unlock();
+        return (1, $db->{$k});
+    }
+
+    $db->{$k} = $pid;
+    $db->unlock();
+    return (0, "");
+}
+
+sub cli_unlock {
+    my ($k, $pid) = @_;
+
+    $db->lock_exclusive();
+
+    if (! exists $db->{$k}) {
+        $db->unlock();
+        return (1, "no such lock");
+    }
+    if ($pid ne $db->{$k}) {    # note string comparision
+        $db->unlock();
+        return (1, "lock is not yours");
+    }
+    delete $db->{$k};
+    $db->unlock();
+    return (0, "");
+}
+
 # ----------------------------------------------------------------------
 # service routines
 
@@ -160,6 +195,9 @@ Usage:
     hashfile clear $file $pattern       # delete all matching keys, print count
     hashfile dump  $file                # dump one $k<TAB>$v per line, then print count
 
+    hashfile lock  $file $key $$        # (advisory) exclusive lock on $key, no wait
+    hashfile unlock $file $key $$       # release lock
+
 Notes:
 
 1.  If a relative path is given, it's considered relative to $HASHFILE_DIR if
@@ -172,6 +210,9 @@ Notes:
 
 3:  The exit code is set (0 for 'found', 1 for 'not found') when appropriate.
     Combined with '-q', this can be very useful in shell scripts.
+
+4.  The lock can be *easily* defeated by a bug in your code; simply delete the
+    lock key!  But your programs don't have bugs, right?
 );
     exit 1;
 }
