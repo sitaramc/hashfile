@@ -71,7 +71,11 @@ sub cli_new {
 sub cli_set {
     my ( $k, $v ) = @_;
 
-    $db->{$k} = $v;
+    if (defined $v) {
+        $db->{$k} = $v;
+    } else {
+        delete $db->{$k};
+    }
     return ( 0, "" );
 }
 
@@ -148,7 +152,7 @@ sub usage {
 say STDERR q(
 Usage:
     hashfile new   $file                # create new hashfile
-    hashfile set   $file $k $v
+    hashfile set   $file $k [$v]        # set value or delete key
     hashfile get   $file $k             # print value
 
     hashfile grep  $file -k|-v $pattern # grep keys or values, print matching keys
