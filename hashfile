@@ -15,6 +15,7 @@ my ( $file, $db );
 {
     my $cmd = shift or usage();
     usage() if $cmd eq '-h';
+    usage() unless @ARGV;
 
     my ( $quiet, $noNL ) = ( 0, 0 );
     if ( $ARGV[0] eq '-n' ) {
@@ -40,9 +41,11 @@ my ( $file, $db );
     );
 
     die "unknown command '$cmd'" unless exists $dt{$cmd};
-    unless ( $cmd eq 'new' ) {
+    if ( $cmd eq 'new' ) {
+        die "hash/file '$file' exists" if -f $file;
+    } else {
         die "hash/file '$file' does not exist" unless -f $file;
-        $db = cli_new($file);    # "new" and "open" are the same for DBM::Deep!
+        cli_new($file);     # "new" and "open" are the same for DBM::Deep!
     }
 
     my ( $rc, $ret ) = $dt{$cmd}->(@ARGV);
@@ -75,8 +78,8 @@ sub cli_set {
 sub cli_get {
     my $k = shift;
 
-    return ( 1, "" ) unless exists $db->{$k};
-    return ( 0, $db->{$k} );
+    return ( 0, $db->{$k} ) if exists $db->{$k};
+    return ( 1, "" );
 }
 
 sub cli_grep {
@@ -94,8 +97,8 @@ sub cli_grep {
             push @out, $k if $v =~ qr($patt);
         }
     }
-    return ( 1, "" ) unless @out;
-    return ( 0, join( "\n", @out ) );
+    return ( 0, join( "\n", @out ) ) if @out;
+    return ( 1, "" );
 }
 
 sub cli_clear {
@@ -115,7 +118,7 @@ sub cli_dump {
     my $c = 0;
     while ( my ( $k, $v ) = each %$db ) {
         $c++;
-        say "$k\t$v\n";
+        say "$k\t$v";
     }
     return ( 0, $c ) if $c;
     return ( 1, 0 );
@@ -135,4 +138,33 @@ sub _fullpath {
 
     # else just the file name as is
     return $file;
+}
+
+sub usage {
+
+say STDERR q(
+Usage:
+    hashfile new   $file                # create new hashfile
+    hashfile set   $file $k $v
+    hashfile get   $file $k             # print value
+
+    hashfile grep  $file -k|-v $pattern # grep keys or values, print matching keys
+
+    hashfile clear $file $pattern       # delete all matching keys, print count
+    hashfile dump  $file                # dump one $k<TAB>$v per line, then print count
+
+Notes:
+
+1.  If a relative path is given, it's considered relative to $HASHFILE_DIR if
+    defined, else current directory.
+
+2.  For anything described as 'print' above, you can use '-n' or '-q' after
+    the command to suppress the trailing newline, or the output itself.  (For
+    the 'dump' command, this only applies to the trailing 'count'; the actual
+    dump cannot be suppressed).
+
+3:  The exit code is set (0 for 'found', 1 for 'not found') when appropriate.
+    Combined with '-q', this can be very useful in shell scripts.
+);
+    exit 1;
 }
