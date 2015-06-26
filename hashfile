@@ -84,8 +84,8 @@ sub cli_get {
 
 sub cli_grep {
     my ( $type, $patt ) = @_;
-    my @out = '';
-    die "huh?" unless $type eq '-k' or $type eq '-v';
+    my @out = ();
+    die "need -k or -v" unless $type eq '-k' or $type eq '-v';
 
     if ( $type eq '-k' ) {
         while ( my ( $k, $v ) = each %$db ) {
@@ -102,7 +102,7 @@ sub cli_grep {
 }
 
 sub cli_clear {
-    my $patt = shift;
+    my $patt = shift or die "need a pattern\n";
 
     my $c = 0;
     while ( my ( $k, $v ) = each %$db ) {
@@ -129,6 +129,9 @@ sub cli_dump {
 
 sub _fullpath {
     my $file = shift;
+
+    # sometimes we don't come in from a shell; don't ask!
+    $file =~ s/^~/$ENV{HOME}/;
 
     # absolute path?  no change
     return $file if $file =~ m(^/);
