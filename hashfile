@@ -1,0 +1,138 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use 5.10.0;
+use Data::Dumper;
+
+use DBM::Deep;
+
+# ----------------------------------------------------------------------
+# kinda sorta globals
+my ( $file, $db );
+
+# ----------------------------------------------------------------------
+# dispatch sub-command and print result
+{
+    my $cmd = shift or usage();
+    usage() if $cmd eq '-h';
+
+    my ( $quiet, $noNL ) = ( 0, 0 );
+    if ( $ARGV[0] eq '-n' ) {
+        $noNL++;
+        shift;
+    }
+    if ( $ARGV[0] eq '-q' ) {
+        $quiet++;
+        shift;
+    }
+
+    $file = shift or die "need has/file name\n";
+    $file = _fullpath($file);
+
+    # dispatch table
+    my %dt = (
+        'new'   => \&cli_new,
+        'set'   => \&cli_set,
+        'get'   => \&cli_get,
+        'clear' => \&cli_clear,
+        'grep'  => \&cli_grep,
+        'dump'  => \&cli_dump,
+    );
+
+    die "unknown command '$cmd'" unless exists $dt{$cmd};
+    unless ( $cmd eq 'new' ) {
+        die "hash/file '$file' does not exist" unless -f $file;
+        $db = cli_new($file);    # "new" and "open" are the same for DBM::Deep!
+    }
+
+    my ( $rc, $ret ) = $dt{$cmd}->(@ARGV);
+    if ( $ret and not $quiet ) {
+        print $ret;
+        print "\n" unless $noNL;
+    }
+    exit $rc;
+}
+
+# ----------------------------------------------------------------------
+
+sub cli_new {
+    $db = DBM::Deep->new(
+        file      => $file,
+        locking   => 1,
+        autoflush => 1,
+        num_txns  => 2,       # else begin_work won't!
+    );
+    return ( 0, "" );
+}
+
+sub cli_set {
+    my ( $k, $v ) = @_;
+
+    $db->{$k} = $v;
+    return ( 0, "" );
+}
+
+sub cli_get {
+    my $k = shift;
+
+    return ( 1, "" ) unless exists $db->{$k};
+    return ( 0, $db->{$k} );
+}
+
+sub cli_grep {
+    my ( $type, $patt ) = @_;
+    my @out = '';
+    die "huh?" unless $type eq '-k' or $type eq '-v';
+
+    if ( $type eq '-k' ) {
+        while ( my ( $k, $v ) = each %$db ) {
+            push @out, $k if $k =~ qr($patt);
+        }
+    }
+    if ( $type eq '-v' ) {
+        while ( my ( $k, $v ) = each %$db ) {
+            push @out, $k if $v =~ qr($patt);
+        }
+    }
+    return ( 1, "" ) unless @out;
+    return ( 0, join( "\n", @out ) );
+}
+
+sub cli_clear {
+    my $patt = shift;
+
+    my $c = 0;
+    while ( my ( $k, $v ) = each %$db ) {
+        next unless $k =~ qr($patt);
+        delete $db->{$k};
+        $c++;
+    }
+    return ( 0, $c ) if $c;
+    return ( 1, 0 );
+}
+
+sub cli_dump {
+    my $c = 0;
+    while ( my ( $k, $v ) = each %$db ) {
+        $c++;
+        say "$k\t$v\n";
+    }
+    return ( 0, $c ) if $c;
+    return ( 1, 0 );
+}
+
+# ----------------------------------------------------------------------
+# service routines
+
+sub _fullpath {
+    my $file = shift;
+
+    # absolute path?  no change
+    return $file if $file =~ m(^/);
+
+    # env set; use that as prefix
+    return $ENV{HASHFILE_DIR} . "/$file" if $ENV{HASHFILE_DIR};
+
+    # else just the file name as is
+    return $file;
+}
