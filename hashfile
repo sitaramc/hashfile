@@ -35,8 +35,8 @@ my ( $file, $db );
         'new'   => \&cli_new,
         'set'   => \&cli_set,
         'get'   => \&cli_get,
-        'clear' => \&cli_clear,
         'grep'  => \&cli_grep,
+        'clear' => \&cli_clear,
         'dump'  => \&cli_dump,
         'lock'  => \&cli_lock,
         'unlock'  => \&cli_unlock,
@@ -208,7 +208,7 @@ Notes:
     the 'dump' command, this only applies to the trailing 'count'; the actual
     dump cannot be suppressed).
 
-3:  The exit code is set (0 for 'found', 1 for 'not found') when appropriate.
+3.  The exit code is set (0 for 'found', 1 for 'not found') when appropriate.
     Combined with '-q', this can be very useful in shell scripts.
 
 4.  The lock can be *easily* defeated by a bug in your code; simply delete the
