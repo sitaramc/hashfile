@@ -121,6 +121,7 @@ sub cli_clear {
 }
 
 sub cli_dump {
+    say STDERR Dumper $db->export() if $ENV{D};
     my $c = 0;
     while ( my ( $k, $v ) = each %$db ) {
         $c++;
