@@ -125,7 +125,7 @@ sub cli_dump {
     my $c = 0;
     while ( my ( $k, $v ) = each %$db ) {
         $c++;
-        say "$k\t$v";
+        say "$k\t" . ( ref $v ? Dumper($v) : $v );
     }
     return ( 0, $c ) if $c;
     return ( 1, 0 );
